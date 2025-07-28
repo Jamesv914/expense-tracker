@@ -42,3 +42,4 @@ expense-tracker/
 3. pip install -r requirements.txt
 4. mkdir data
 5. python app.py
+6. open `http://127.0.0.1:5000/`
