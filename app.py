@@ -1,12 +1,12 @@
-from flask import Flask, render_template, request, redirect, jsonify
+from flask import Flask, render_template, request, redirect
 import sqlite3
 from datetime import datetime
+import json
 
 app = Flask(__name__)
-
 DB_PATH = 'data/expenses.db'
 
-# ---------- DATABASE SETUP ----------
+# ---------- DATABASE ----------
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -27,7 +27,22 @@ init_db()
 # ---------- ROUTES ----------
 @app.route('/')
 def index():
-    return render_template('index.html')
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Get all expenses
+    c.execute('SELECT date, amount, category, note FROM expenses ORDER BY date DESC')
+    rows = c.fetchall()
+
+    # Get category summary
+    c.execute('SELECT category, SUM(amount) FROM expenses GROUP BY category')
+    summary = c.fetchall()
+
+    conn.close()
+
+    # Convert for chart
+    chart_data = [{'category': r[0], 'total': r[1]} for r in summary]
+    return render_template('index.html', expenses=rows, chart_data=json.dumps(chart_data))
 
 @app.route('/add', methods=['POST'])
 def add_expense():
@@ -43,31 +58,6 @@ def add_expense():
     conn.commit()
     conn.close()
     return redirect('/')
-
-@app.route('/expenses', methods=['GET'])
-def get_expenses():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT id, amount, category, note, date FROM expenses ORDER BY date DESC')
-    rows = c.fetchall()
-    conn.close()
-
-    expenses = [
-        {'id': r[0], 'amount': r[1], 'category': r[2], 'note': r[3], 'date': r[4]}
-        for r in rows
-    ]
-    return jsonify(expenses)
-
-@app.route('/summary', methods=['GET'])
-def get_summary():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('SELECT category, SUM(amount) FROM expenses GROUP BY category')
-    rows = c.fetchall()
-    conn.close()
-
-    summary = [{'category': r[0], 'total': r[1]} for r in rows]
-    return jsonify(summary)
 
 # ---------- MAIN ----------
 if __name__ == '__main__':
